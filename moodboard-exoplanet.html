@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simran Shah</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;1,9..144,300;1,9..144,400&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    /* ── Reset + Variables ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --text:        #EEF5F8;
+      --text-dim:    rgba(238,245,248,0.96);
+      --text-faint:  rgba(238,245,248,0.82);
+      --text-ultra:  rgba(238,245,248,0.78);
+      --blue:        #5BB8D4;
+      --blue-dim:    rgba(91,184,212,0.55);
+      --blue-glow:   rgba(91,184,212,0.18);
+      --blue-ultra:  rgba(91,184,212,0.08);
+      --edge:        rgba(91,184,212,0.22);
+      --edge-soft:   rgba(91,184,212,0.10);
+      --edge-bright: rgba(91,184,212,0.45);
+      --panel:       rgba(6,4,3,0.25);
+      --panel-deep:  rgba(4,3,2,0.30);
+      --font-d: 'Fraunces', Georgia, serif;
+      --font-m: 'JetBrains Mono', 'Courier New', monospace;
+      --cx: 48px;
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      min-height: 100dvh;
+      background: #080503;
+      color: var(--text);
+      font-family: var(--font-m);
+      font-size: 13px;
+      line-height: 1.7;
+      overflow-x: hidden;
+    }
+
+    /* ── Canvas + vignette ── */
+    #globe-canvas { position: fixed; inset: 0; z-index: 0; width: 100%; height: 100%; display: block; }
+    .scene-vignette {
+      position: fixed; inset: 0; z-index: 1; pointer-events: none;
+      background: radial-gradient(ellipse at 50% 0%, transparent 40%, rgba(3,2,1,0.55) 100%);
+    }
+
+    /* ── Nav ── */
+    nav {
+      position: sticky; top: 0; width: 100%; z-index: 100;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+      background: rgba(4,3,2,0.58);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    }
+    .nav-inner {
+      max-width: 1200px; margin: 0 auto;
+      padding: 16px var(--cx);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .nav-left { display: flex; align-items: center; gap: 14px; }
+    .nav-sigil {
+      width: 20px; height: 20px; border-radius: 50%;
+      border: 1px solid var(--blue-dim); position: relative;
+      box-shadow: 0 0 10px var(--blue-glow);
+    }
+    .nav-sigil::before {
+      content: ''; position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%,-50%);
+      width: 5px; height: 5px; border-radius: 50%;
+      background: var(--blue); box-shadow: 0 0 6px var(--blue);
+    }
+    .nav-coord { font-family: var(--font-m); font-size: 9px; letter-spacing: 0.16em; color: var(--text-ultra); }
+    .nav-links { display: flex; gap: 28px; list-style: none; }
+    .nav-links a {
+      font-family: var(--font-m); font-size: 10px;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--text-faint); text-decoration: none;
+      transition: color 0.22s; text-shadow: 0 1px 8px rgba(0,0,0,0.9); cursor: pointer;
+    }
+    .nav-links a:hover, .nav-links a.active { color: var(--text); }
+
+    /* ── SPA panel system ── */
+    #spa-root { position: relative; z-index: 10; }
+    .spa-panel { display: none; opacity: 0; transition: opacity 0.55s cubic-bezier(0.32,0.72,0,1); }
+    .spa-panel.active  { display: block; }
+    .spa-panel.visible { opacity: 1; }
+
+    /* ── Shared content wrap ── */
+    .content-wrap { max-width: 1200px; margin: 0 auto; padding: 0 var(--cx); }
+
+    /* ── Shared animations ── */
+    @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+
+    /* ── Section divider ── */
+    .hr { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 0; }
+
+    .section-tag {
+      display: flex; align-items: center; gap: 12px;
+      font-family: var(--font-m); font-size: 9px; letter-spacing: 0.30em; text-transform: uppercase;
+      color: var(--text-ultra); margin-bottom: 28px;
+    }
+    .section-tag::after { content: ''; flex: 1; height: 1px; background: var(--edge); max-width: 64px; }
+
+    /* ── Shared: section head (cv + portfolio) ── */
+    .sec-head { display: flex; align-items: center; gap: 20px; margin-bottom: 32px; scroll-margin-top: 90px; }
+    .sec-label { font-family: var(--font-m); font-size: 9px; letter-spacing: 0.28em; text-transform: uppercase; color: var(--text); flex-shrink: 0; }
+    .sec-line  { flex: 1; height: 1px; background: linear-gradient(to right, rgba(238,245,248,0.15), transparent); }
+    .sec-count { font-family: var(--font-m); font-size: 9px; letter-spacing: 0.18em; color: var(--text-ultra); flex-shrink: 0; }
+    .sec-note  { font-family: var(--font-m); font-size: 11px; color: var(--text-ultra); margin-bottom: 32px; font-style: italic; }
+
+    /* ── Shared: page header ── */
+    .page-head {
+      padding: 64px 0 56px;
+      border-bottom: 1px solid rgba(238,245,248,0.07);
+      margin-bottom: 60px;
+    }
+    .page-head-flex {
+      display: flex; align-items: flex-start; justify-content: space-between; gap: 48px;
+    }
+    .page-eyebrow { font-family: var(--font-m); font-size: 9px; letter-spacing: 0.28em; text-transform: uppercase; color: var(--text-ultra); margin-bottom: 16px; }
+    .page-title {
+      font-family: var(--font-d); font-size: clamp(52px, 6vw, 80px);
+      font-weight: 300; line-height: 0.96; letter-spacing: -0.02em;
+      font-variation-settings: 'opsz' 72; color: var(--text);
+    }
+    .page-title em { font-style: italic; }
+    .page-meta { font-family: var(--font-m); font-size: 12px; color: var(--text-faint); margin-top: 18px; line-height: 1.9; }
+
+    /* ── Shared: buttons ── */
+    .btn-primary {
+      display: inline-flex; align-items: center; padding: 2px; border-radius: 999px;
+      background: linear-gradient(135deg, rgba(91,184,212,0.65), rgba(120,200,230,0.40));
+      box-shadow: 0 0 28px rgba(91,184,212,0.18), 0 0 56px rgba(91,184,212,0.07);
+      text-decoration: none;
+      transition: box-shadow 0.32s cubic-bezier(0.32,0.72,0,1), transform 0.25s cubic-bezier(0.32,0.72,0,1);
+    }
+    .btn-primary:hover { box-shadow: 0 0 40px rgba(91,184,212,0.30), 0 0 80px rgba(91,184,212,0.12); transform: translateY(-2px); }
+    .btn-primary-inner {
+      display: inline-flex; align-items: center; gap: 12px;
+      padding: 13px 28px; border-radius: 999px; background: rgba(5,3,2,0.95);
+      font-family: var(--font-m); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text);
+    }
+    .btn-icon {
+      width: 24px; height: 24px; border-radius: 50%;
+      background: rgba(91,184,212,0.12); border: 1px solid var(--edge-bright);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; color: var(--blue);
+      transition: transform 0.25s cubic-bezier(0.32,0.72,0,1);
+    }
+    .btn-primary:hover .btn-icon { transform: translate(2px,-2px) scale(1.08); }
+    .btn-ghost {
+      font-family: var(--font-m); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--text-faint); text-decoration: none; padding: 13px 0;
+      border-bottom: 1px solid var(--edge); transition: color 0.22s, border-color 0.22s;
+    }
+    .btn-ghost:hover { color: var(--text); border-color: rgba(238,245,248,0.40); }
+
+    /* ══════════════════════════════════════
+       HOME — hero
+    ══════════════════════════════════════ */
+    .hero {
+      min-height: calc(100dvh - 70px);
+      display: flex; flex-direction: column; justify-content: flex-start;
+      padding: 40px 0 36px;
+    }
+    .hero-inner { max-width: 640px; }
+    .hero-eyebrow {
+      display: inline-flex; align-items: center; gap: 10px;
+      font-family: var(--font-m); font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase;
+      color: rgba(238,245,248,0.80); margin-bottom: 14px; text-shadow: 0 1px 12px rgba(0,0,0,0.8);
+    }
+    .hero-eyebrow::before { content: '▸'; font-size: 8px; }
+    .hero-headline {
+      font-family: var(--font-d); font-size: clamp(72px, 8vw, 108px);
+      font-weight: 300; line-height: 0.96; letter-spacing: -0.02em; color: var(--text);
+      margin-bottom: 24px; text-shadow: 0 2px 40px rgba(0,0,0,0.6), 0 0 80px rgba(0,0,0,0.4);
+    }
+    .hero-headline em { font-style: italic; }
+    .hero-lede {
+      font-family: var(--font-m); font-size: 13px; line-height: 1.85; color: var(--text-dim);
+      max-width: 500px; margin-bottom: 36px;
+      border-left: 1px solid var(--blue-dim); padding-left: 20px;
+      text-shadow: 0 1px 12px rgba(0,0,0,0.9);
+    }
+    .hero-foot {
+      margin-top: auto; display: flex; align-items: center; gap: 24px;
+      padding-top: 28px; border-top: 1px solid rgba(255,255,255,0.10);
+      font-family: var(--font-m); font-size: 9px; letter-spacing: 0.20em; text-transform: uppercase; color: var(--text-faint);
+    }
+    .hero-foot-sep { width: 1px; height: 18px; background: rgba(255,255,255,0.12); }
+    .hero-foot .live { color: var(--text); }
+
+    /* ── HOME — brief + ID card ── */
+    .brief-section { padding: 96px 0; display: grid; grid-template-columns: 1fr 360px; gap: 80px; align-items: start; }
+    .brief-section > div:last-child { padding-top: 42px; }
+    .brief-headline { font-family: var(--font-d); font-size: 46px; font-weight: 300; line-height: 1.16; letter-spacing: -0.01em; color: var(--text); margin-bottom: 24px; }
+    .brief-headline em { font-style: italic; }
+    .brief-body { font-family: var(--font-m); font-size: 13px; line-height: 2.1; color: var(--text-dim); margin-bottom: 40px; max-width: 440px; }
+    .id-card-outer {
+      padding: 1.5px; border-radius: 18px;
+      background: linear-gradient(145deg, rgba(91,184,212,0.35), rgba(150,200,230,0.15), rgba(60,140,180,0.25));
+      box-shadow: 0 0 40px rgba(91,184,212,0.08), 0 28px 60px rgba(0,0,0,0.70);
+    }
+    .id-card-inner { border-radius: 16.5px; background: var(--panel-deep); padding: 30px; position: relative; overflow: hidden; }
+    .id-card-inner::before {
+      content: ''; position: absolute; top: -50px; right: -50px;
+      width: 180px; height: 180px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(91,184,212,0.07) 0%, transparent 70%); pointer-events: none;
+    }
+    .hc { position: absolute; width: 12px; height: 12px; }
+    .hc.tl { top: 11px; left: 11px;   border-top: 1px solid var(--edge-bright); border-left:   1px solid var(--edge-bright); }
+    .hc.tr { top: 11px; right: 11px;  border-top: 1px solid var(--edge-bright); border-right:  1px solid var(--edge-bright); }
+    .hc.bl { bottom: 11px; left: 11px;  border-bottom: 1px solid var(--edge-bright); border-left:   1px solid var(--edge-bright); }
+    .hc.br { bottom: 11px; right: 11px; border-bottom: 1px solid var(--edge-bright); border-right:  1px solid var(--edge-bright); }
+    .card-ref  { font-family: var(--font-m); font-size: 8px; letter-spacing: 0.26em; text-transform: uppercase; color: var(--text-ultra); margin-bottom: 18px; }
+    .card-name { font-family: var(--font-d); font-size: 30px; font-weight: 300; margin-bottom: 4px; color: var(--text); }
+    .card-role { font-family: var(--font-m); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 22px; }
+    .card-sep  { height: 1px; background: linear-gradient(to right, var(--edge-bright), transparent); margin-bottom: 22px; }
+    .card-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 22px; }
+    .stat-num  { font-family: var(--font-d); font-size: 34px; font-weight: 300; color: var(--blue); line-height: 1; margin-bottom: 4px; text-shadow: 0 0 20px var(--blue-glow); }
+    .stat-label { font-family: var(--font-m); font-size: 8px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-faint); }
+    .card-tags  { display: flex; flex-wrap: wrap; gap: 6px; }
+    .ctag { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--edge); font-family: var(--font-m); font-size: 8px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-faint); background: var(--blue-ultra); }
+
+    /* ── HOME — work section ── */
+    .work-section { padding: 0 0 96px; }
+    .work-header  { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 40px; }
+    .work-title   { font-family: var(--font-d); font-size: 50px; font-weight: 300; color: var(--text); }
+    .work-title em { font-style: italic; }
+    .work-count   { font-family: var(--font-m); font-size: 9px; letter-spacing: 0.20em; color: var(--text); }
+    .work-grid    { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: start; }
+    .work-panel   { display: flex; flex-direction: column; gap: 0; }
+    .work-panel-label { font-family: var(--font-m); font-size: 9px; letter-spacing: 0.28em; text-transform: uppercase; color: var(--text); margin-bottom: 28px; }
+    .cv-entries { display: flex; flex-direction: column; gap: 0; }
+    .cv-entry { display: grid; grid-template-columns: 90px 1fr; gap: 0 20px; padding: 22px 0; border-top: 1px solid rgba(238,245,248,0.07); position: relative; }
+    .cv-entry:last-child { border-bottom: 1px solid rgba(238,245,248,0.07); }
+    .cv-period { font-family: var(--font-m); font-size: 9px; letter-spacing: 0.14em; color: var(--text); padding-top: 2px; line-height: 1.7; }
+    .cv-role   { font-family: var(--font-d); font-size: 20px; font-weight: 300; line-height: 1.18; font-variation-settings: 'opsz' 20; color: var(--text); margin-bottom: 4px; }
+    .cv-role em { font-style: italic; }
+    .cv-org    { font-family: var(--font-m); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text); margin-bottom: 10px; }
+    .cv-note   { font-family: var(--font-m); font-size: 12px; line-height: 1.85; color: var(--text); }
+    .cv-now    { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-m); font-size: 8px; letter-spacing: 0.20em; text-transform: uppercase; color: var(--text); margin-top: 8px; }
+    .cv-now-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--text); animation: pulse 1.6s ease-in-out infinite; }
+    .spotlight-wrap  { display: flex; flex-direction: column; padding-top: 42px; }
+    .spotlight-label { font-family: var(--font-m); font-size: 9px; letter-spacing: 0.28em; text-transform: uppercase; color: var(--text); margin-bottom: 28px; }
+    .spotlight {
+      border-radius: 16px; background: rgba(8,6,4,0.30); border: 1px solid rgba(238,245,248,0.08);
+      padding: 34px 32px 28px; position: relative; overflow: hidden; display: flex; flex-direction: column;
+      opacity: 1; transition: opacity 0.38s cubic-bezier(0.32,0.72,0,1), border-color 0.32s, box-shadow 0.32s;
+    }
+    .spotlight:hover  { border-color: var(--edge-bright); box-shadow: 0 0 32px var(--blue-glow); }
+    .spotlight::after {
+      content: ''; position: absolute; top: -30px; right: -30px; width: 160px; height: 160px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(91,184,212,0.07) 0%, transparent 70%); pointer-events: none;
+    }
+    .spotlight.fading { opacity: 0; }
+    .spot-ref   { font-family: var(--font-m); font-size: 9px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--text); margin-bottom: 24px; }
+    .spot-title { font-family: var(--font-d); font-size: 28px; font-weight: 300; line-height: 1.18; font-variation-settings: 'opsz' 28; color: var(--text); margin-bottom: 8px; }
+    .spot-title em { font-style: italic; }
+    .spot-type  { font-family: var(--font-m); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text); margin-bottom: 18px; }
+    .spot-desc  { font-family: var(--font-m); font-size: 13px; line-height: 1.92; color: var(--text); margin-bottom: 28px; }
+    .spot-foot  { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: auto; }
+    .spot-tags  { display: flex; flex-wrap: wrap; gap: 6px; }
+    .spot-pill  { padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(238,245,248,0.20); font-family: var(--font-m); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text); background: rgba(238,245,248,0.05); }
+    .spot-nav   { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .spot-btn   {
+      width: 32px; height: 32px; border-radius: 50%; border: 1px solid rgba(238,245,248,0.25);
+      background: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      font-size: 13px; color: var(--text);
+      transition: border-color 0.22s, transform 0.26s cubic-bezier(0.32,0.72,0,1);
+    }
+    .spot-btn:hover { border-color: var(--text); transform: scale(1.08); }
+    .spot-counter { font-family: var(--font-m); font-size: 9px; letter-spacing: 0.18em; color: var(--text); min-width: 28px; text-align: center; }
+
+    /* ── HOME — contact strip at bottom ── */
+    .contact-section { padding: 96px 0 80px; text-align: center; position: relative; }
+    .contact-inner   { position: relative; z-index: 1; }
+    .contact-badge   { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-m); font-size: 8px; letter-spacing: 0.30em; text-transform: uppercase; color: var(--text-ultra); border: 1px solid rgba(255,255,255,0.10); padding: 6px 14px; margin-bottom: 20px; }
+    .badge-dot       { width: 4px; height: 4px; border-radius: 50%; background: var(--blue); box-shadow: 0 0 6px var(--blue); animation: pulse 1.6s ease-in-out infinite; }
+    .contact-eyebrow {
+      font-family: var(--font-m); font-size: 9px; letter-spacing: 0.32em; text-transform: uppercase;
+      color: var(--text-ultra); display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 28px;
+    }
+    .contact-eyebrow::before, .contact-eyebrow::after { content: ''; width: 32px; height: 1px; background: var(--edge); }
+    .contact-headline { font-family: var(--font-d); font-size: clamp(56px, 6vw, 80px); font-weight: 300; line-height: 1.04; color: var(--text); margin-bottom: 24px; }
+    .contact-headline em { font-style: italic; }
+    .contact-sub { font-family: var(--font-m); font-size: 13px; color: var(--text-dim); line-height: 2.1; margin-bottom: 48px; max-width: 500px; margin-left: auto; margin-right: auto; }
+    .contact-actions { display: flex; align-items: center; justify-content: center; gap: 20px; }
+
+    /* ══════════════════════════════════════
+       CV / WORK panel
+    ══════════════════════════════════════ */
+    .cv-contact-strip  { margin-bottom: 60px; }
+    .cv-contact-grid   { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 48px; }
+    .cv-contact-item   { display: flex; gap: 14px; align-items: baseline; }
+    .cv-contact-label  { font-family: var(--font-m); font-size: 8px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--text-ultra); min-width: 60px; flex-shrink: 0; }
+    .cv-contact-val    { font-family: var(--font-m); font-size: 12px; color: var(--text); }
+    .cv-contact-val a  { color: var(--text); text-decoration: none; border-bottom: 1px solid rgba(238,245,248,0.18); transition: border-color 0.22s; }
+    .cv-contact-val a:hover { border-color: var(--text); }
+    .lang-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 22px; }
+    .lang-pill  { padding: 4px 12px; border-radius: 999px; border: 1px solid rgba(238,245,248,0.20); font-family: var(--font-m); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text); background: rgba(238,245,248,0.04); }
+    .cv-summary { font-family: var(--font-m); font-size: 13px; line-height: 1.9; color: var(--text); border-left: 2px solid rgba(238,245,248,0.18); padding-left: 22px; max-width: 780px; }
+    .cv-section { margin-bottom: 64px; }
+    .entry         { margin-bottom: 40px; padding-bottom: 40px; border-bottom: 1px solid rgba(238,245,248,0.07); }
+    .entry:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .entry-head    { display: flex; justify-content: space-between; align-items: baseline; gap: 20px; flex-wrap: wrap; margin-bottom: 6px; }
+    .entry-role    { font-family: var(--font-d); font-size: 20px; font-weight: 300; line-height: 1.18; font-variation-settings: 'opsz' 20; color: var(--text); }
+    .entry-role em { font-style: italic; }
+    .entry-date    { font-family: var(--font-m); font-size: 9px; letter-spacing: 0.14em; color: var(--text); white-space: nowrap; flex-shrink: 0; padding-top: 2px; }
+    .entry-company { font-family: var(--font-m); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text); margin-bottom: 14px; }
+    .entry-desc    { font-family: var(--font-m); font-size: 12px; line-height: 1.9; color: var(--text); margin-bottom: 12px; }
+    .entry-desc:last-child { margin-bottom: 0; }
+    .entry-list    { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+    .entry-list li { font-family: var(--font-m); font-size: 12px; line-height: 1.9; color: var(--text); padding-left: 18px; position: relative; }
+    .entry-list li::before { content: '—'; position: absolute; left: 0; color: rgba(238,245,248,0.40); }
+    .skills-grid   { display: grid; grid-template-columns: 180px 1fr; gap: 0; }
+    .skill-cat     { font-family: var(--font-m); font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text); padding: 16px 0; border-bottom: 1px solid rgba(238,245,248,0.07); display: flex; align-items: flex-start; }
+    .skill-val     { font-family: var(--font-m); font-size: 12px; line-height: 1.85; color: var(--text); padding: 14px 0 14px 28px; border-bottom: 1px solid rgba(238,245,248,0.07); }
+    .skill-cat:last-of-type, .skill-val:last-of-type { border-bottom: none; }
+    .cv-footer     { padding: 40px 0 80px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(238,245,248,0.07); }
+    .cv-footer-left { font-family: var(--font-m); font-size: 9px; letter-spacing: 0.16em; color: var(--text-ultra); }
+    .cv-footer-links { display: flex; gap: 28px; }
+    .cv-footer-links a { font-family: var(--font-m); font-size: 10px; letter-spacing: 0.12em; color: var(--text); text-decoration: none; border-bottom: 1px solid rgba(238,245,248,0.18); transition: border-color 0.22s; }
+    .cv-footer-links a:hover { border-color: var(--text); }
+    /* photo + QR in cv header */
+    .page-head-right { display: flex; flex-direction: column; align-items: flex-end; gap: 16px; flex-shrink: 0; }
+    .head-images  { display: flex; gap: 12px; align-items: flex-start; }
+    .head-photo   { width: 160px; height: 190px; border: 1px solid rgba(238,245,248,0.15); overflow: hidden; flex-shrink: 0; }
+    .head-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .head-qr      { width: 130px; border: 1px solid rgba(238,245,248,0.15); overflow: hidden; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; background: #EEF5F8; padding: 6px; gap: 4px; }
+    .head-qr img  { width: 118px; height: 118px; display: block; }
+    .head-qr-label { font-family: var(--font-m); font-size: 7px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(6,4,3,0.6); text-align: center; padding-bottom: 2px; }
+    .download-btn { display: inline-flex; align-items: center; padding: 2px; border-radius: 999px; flex-shrink: 0; background: linear-gradient(135deg, rgba(91,184,212,0.65), rgba(120,200,230,0.40)); box-shadow: 0 0 28px rgba(91,184,212,0.18); text-decoration: none; transition: box-shadow 0.32s, transform 0.25s; }
+    .download-btn:hover { box-shadow: 0 0 40px rgba(91,184,212,0.30); transform: translateY(-2px); }
+    .download-btn-inner { display: inline-flex; align-items: center; gap: 10px; padding: 12px 24px; border-radius: 999px; background: rgba(5,3,2,0.95); font-family: var(--font-m); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text); }
+    .download-icon { width: 22px; height: 22px; border-radius: 50%; background: rgba(91,184,212,0.12); border: 1px solid var(--edge-bright); display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--blue); transition: transform 0.25s; }
+    .download-btn:hover .download-icon { transform: translateY(2px) scale(1.08); }
+
+    /* ══════════════════════════════════════
+       PORTFOLIO panel
+    ══════════════════════════════════════ */
+    .page-intro { font-family: var(--font-m); font-size: 13px; line-height: 1.9; color: var(--text); max-width: 680px; border-left: 2px solid rgba(238,245,248,0.18); padding-left: 22px; margin-top: 28px; }
+    .page-intro a { color: var(--text); text-decoration: none; border-bottom: 1px solid rgba(238,245,248,0.25); transition: border-color 0.22s; }
+    .page-intro a:hover { border-color: var(--text); }
+    .pf-section   { margin-bottom: 72px; }
+    .jump-nav     { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 52px; }
+    .jump-link    { font-family: var(--font-m); font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text); text-decoration: none; padding: 6px 14px; border-radius: 999px; border: 1px solid rgba(238,245,248,0.18); background: rgba(238,245,248,0.03); transition: border-color 0.22s, background 0.22s; }
+    .jump-link:hover { border-color: rgba(238,245,248,0.35); background: rgba(238,245,248,0.07); }
+    .project-card { border-radius: 16px; background: rgba(8,6,4,0.30); border: 1px solid rgba(238,245,248,0.08); padding: 34px 32px; margin-bottom: 20px; position: relative; overflow: hidden; transition: border-color 0.30s, box-shadow 0.30s; }
+    .project-card:hover { border-color: rgba(238,245,248,0.18); box-shadow: 0 0 32px rgba(91,184,212,0.08); }
+    .project-card::after { content: ''; position: absolute; top: -30px; right: -30px; width: 160px; height: 160px; border-radius: 50%; background: radial-gradient(circle, rgba(91,184,212,0.05) 0%, transparent 70%); pointer-events: none; }
+    .project-card:last-child { margin-bottom: 0; }
+    .card-head    { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+    .card-tag     { font-family: var(--font-m); font-size: 8px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--text); }
+    .card-meta    { font-family: var(--font-m); font-size: 9px; letter-spacing: 0.14em; color: var(--text-ultra); }
+    .card-title   { font-family: var(--font-d); font-size: 24px; font-weight: 300; line-height: 1.18; font-variation-settings: 'opsz' 24; color: var(--text); margin-bottom: 6px; }
+    .card-title em { font-style: italic; }
+    .card-subtitle { font-family: var(--font-m); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text); margin-bottom: 22px; }
+    .card-body p  { font-family: var(--font-m); font-size: 12px; line-height: 1.9; color: var(--text); margin-bottom: 14px; }
+    .card-body p:last-child { margin-bottom: 0; }
+    .pf-footer    { padding: 40px 0 80px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(238,245,248,0.07); }
+    .pf-footer-left  { font-family: var(--font-m); font-size: 9px; letter-spacing: 0.16em; color: var(--text-ultra); }
+    .pf-footer-links { display: flex; gap: 28px; }
+    .pf-footer-links a { font-family: var(--font-m); font-size: 10px; letter-spacing: 0.12em; color: var(--text); text-decoration: none; border-bottom: 1px solid rgba(238,245,248,0.18); transition: border-color 0.22s; }
+    .pf-footer-links a:hover { border-color: var(--text); }
+
+    /* ══════════════════════════════════════
+       CONTACT panel
+    ══════════════════════════════════════ */
+    .page-wrap-contact {
+      min-height: calc(100dvh - 53px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 64px var(--cx);
+    }
+    .contact-block { width: 100%; max-width: 640px; text-align: center; }
+    .contact-rows  { display: flex; flex-direction: column; border-top: 1px solid rgba(238,245,248,0.07); margin-bottom: 40px; text-align: left; }
+    .contact-row   { display: flex; align-items: baseline; gap: 24px; padding: 18px 0; border-bottom: 1px solid rgba(238,245,248,0.07); }
+    .contact-row-label { font-family: var(--font-m); font-size: 8px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--text-ultra); min-width: 80px; flex-shrink: 0; }
+    .contact-row-val   { font-family: var(--font-m); font-size: 13px; color: var(--text); }
+    .contact-row-val a { color: var(--text); text-decoration: none; border-bottom: 1px solid rgba(238,245,248,0.18); transition: border-color 0.22s; }
+    .contact-row-val a:hover { border-color: var(--text); }
+
+    /* ── Responsive ── */
+    @media (max-width: 1024px) {
+      :root { --cx: 32px; }
+      .nav-coord { display: none; }
+      .brief-section { grid-template-columns: 1fr; gap: 48px; }
+      .brief-headline { font-size: 38px; }
+      .work-grid { grid-template-columns: 1fr; gap: 56px; }
+      .page-head-flex { flex-direction: column; align-items: flex-start; gap: 28px; }
+      .cv-contact-grid { grid-template-columns: 1fr; gap: 8px; }
+      .skills-grid { grid-template-columns: 1fr; }
+      .skill-cat { border-bottom: none; padding-bottom: 4px; }
+      .skill-val { padding-left: 0; }
+    }
+    @media (max-width: 768px) {
+      :root { --cx: 24px; }
+      .hero { padding: 44px 0 36px; }
+      .hero-headline { font-size: clamp(52px, 11vw, 80px); }
+      .cv-entry { grid-template-columns: 72px 1fr; gap: 0 16px; }
+      .contact-actions { flex-direction: column; align-items: center; gap: 16px; }
+      .project-card { padding: 24px 22px; }
+      .page-wrap-contact { padding: 48px var(--cx); }
+    }
+    @media (max-width: 480px) {
+      :root { --cx: 18px; }
+      .nav-links { display: none; }
+      .hero-headline { font-size: clamp(44px, 13vw, 64px); }
+      .brief-section { padding: 64px 0; }
+      .brief-headline { font-size: 30px; }
+      .work-title { font-size: 36px; }
+      .cv-entry { grid-template-columns: 1fr; gap: 8px; }
+      .spotlight { padding: 24px 20px 20px; }
+      .spot-foot { flex-direction: column; align-items: flex-start; }
+      .contact-row { flex-direction: column; gap: 6px; }
+      .contact-row-label { min-width: unset; }
+    }
+  </style>
+
+  <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.min.js"}}</script>
+  <script>window.TERRAIN_POS = { x: 0, z: 0 };</script>
+  <script type="module" src="globe-bg.js?v=31"></script>
+</head>
+<body>
+
+<canvas id="globe-canvas"></canvas>
+<div class="scene-vignette"></div>
+
+<nav>
+  <div class="nav-inner">
+    <div class="nav-left"><div class="nav-sigil"></div></div>
+    <span class="nav-coord">52.52°N 13.40°E · Berlin, DE</span>
+    <ul class="nav-links">
+      <li><a href="#" data-page="index.html" class="active">home</a></li>
+      <li><a href="#" data-page="cv.html">work</a></li>
+      <li><a href="#" data-page="portfolio.html">portfolio</a></li>
+      <li><a href="#" data-page="contact.html">contact</a></li>
+    </ul>
+  </div>
+</nav>
+
+<div id="spa-root">
+
+  <!-- ═══════════════ HOME ═══════════════ -->
+  <div class="spa-panel" data-page="index.html">
+    <div class="content-wrap">
+
+      <section class="hero">
+        <div class="hero-inner">
+          <div class="hero-eyebrow">Signal acquired · Berlin, DE</div>
+          <h1 class="hero-headline">Simran <em>Shah.</em></h1>
+          <p class="hero-lede">
+            Strategic Marketing, 4 years in the B2B Software Solutions world,
+            at a Microsoft Channel Partner. MA Strategic Marketing Management
+            at ISM Berlin. I have an intuitive and comprehensive proficiency
+            in artificial intelligence technologies that is backed by real
+            intelligence for when AI falls short.
+          </p>
+        </div>
+        <div class="hero-foot">
+          <span class="live">● Open to roles</span>
+          <div class="hero-foot-sep"></div>
+          <span>4 yrs B2B</span>
+          <div class="hero-foot-sep"></div>
+          <span>MA ISM Berlin · 2026</span>
+          <div class="hero-foot-sep"></div>
+          <span>Strategy · CRM · B2B · Research</span>
+        </div>
+      </section>
+
+      <hr class="hr">
+
+      <section class="brief-section">
+        <div>
+          <div class="section-tag">Brief</div>
+          <h2 class="brief-headline">From insight to<br><em>implementation.</em></h2>
+          <p class="brief-body">
+            I write decks people actually read, run campaigns that move pipeline, and translate between technical teams and the rest of the world. Tech should be accessible to everyone, and I can and have proven my ability to communicate with a hyper-online engineer and the average businessperson who works outside of the bubble. My ability to communicate is backed by real understanding of how they work.
+          </p>
+        </div>
+        <div>
+          <div class="id-card-outer">
+            <div class="id-card-inner">
+              <div class="hc tl"></div><div class="hc tr"></div>
+              <div class="hc bl"></div><div class="hc br"></div>
+              <div class="card-ref">IDENT / SS·2026·001</div>
+              <div class="card-name">Simran Shah</div>
+              <div class="card-role">Marketing &amp; Strategy · B2B</div>
+              <div class="card-sep"></div>
+              <div class="card-stats">
+                <div><div class="stat-num">4</div><div class="stat-label">Years B2B</div></div>
+                <div><div class="stat-num">5</div><div class="stat-label">Projects</div></div>
+              </div>
+              <div class="card-tags">
+                <span class="ctag">B2B</span><span class="ctag">CRM</span>
+                <span class="ctag">AI</span><span class="ctag">Research</span>
+                <span class="ctag">Strategy</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="work-section">
+        <div class="work-header">
+          <h2 class="work-title">Selected <em>work</em></h2>
+          <span class="work-count">05 / transmissions logged</span>
+        </div>
+        <div class="work-grid">
+          <div class="work-panel">
+            <div class="work-panel-label">Experience</div>
+            <div class="cv-entries">
+              <div class="cv-entry">
+                <div class="cv-period">2024<br>— 2026</div>
+                <div class="cv-body">
+                  <div class="cv-role">MA Strategic Marketing<br><em>Management</em></div>
+                  <div class="cv-org">ISM Berlin</div>
+                  <div class="cv-note">Thesis: AI adoption frameworks in German B2B marketing. 12 expert interviews, Grounded Theory methodology, NIAF framework.</div>
+                </div>
+              </div>
+              <div class="cv-entry">
+                <div class="cv-period">2020<br>— 2024</div>
+                <div class="cv-body">
+                  <div class="cv-role">Marketing &amp; Strategy<br><em>Lead</em></div>
+                  <div class="cv-org">Xpress Computers · Microsoft Partner</div>
+                  <div class="cv-note">4 years of B2B marketing across CRM, demand gen, and channel strategy. Full ownership of campaigns, decks, and go-to-market motions in the SME software space.</div>
+                  <span class="cv-now"><span class="cv-now-dot"></span>Current</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="spotlight-wrap">
+            <div class="spotlight-label">Portfolio · <span id="spotCounter">01 / 05</span></div>
+            <div class="spotlight" id="spotlight">
+              <div class="spot-ref"   id="spotRef">LOG·001 / MA·THESIS</div>
+              <div class="spot-title" id="spotTitle">AI marketing in<br><em>privacy-conscious B2B</em></div>
+              <div class="spot-type"  id="spotType">Qualitative Research · B2B · Germany · MA Thesis 2026</div>
+              <p   class="spot-desc"  id="spotDesc">Twelve expert interviews. Five-layer adoption filter. One new framework: the Negotiated Institutional Adoption Framework (NIAF). How German firms really decide on AI marketing tools.</p>
+              <div class="spot-foot">
+                <div class="spot-tags" id="spotTags"><span class="spot-pill">Research</span><span class="spot-pill">B2B</span><span class="spot-pill">AI</span><span class="spot-pill">Strategy</span></div>
+                <div class="spot-nav">
+                  <button class="spot-btn" id="spotPrev">←</button>
+                  <span class="spot-counter" id="spotCounterInner">01 / 05</span>
+                  <button class="spot-btn" id="spotNext">→</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="contact-section">
+        <div class="contact-inner">
+          <div class="contact-badge"><span class="badge-dot"></span>Transmission channel open</div>
+          <div class="contact-eyebrow">Initiate contact</div>
+          <h2 class="contact-headline">Ready to<br><em>transmit.</em></h2>
+          <p class="contact-sub">If that sounds like the kind of person you're hiring, let's talk.</p>
+          <div class="contact-actions">
+            <a href="mailto:simranshah1998@gmail.com" class="btn-primary">
+              <div class="btn-primary-inner">simranshah1998@gmail.com<div class="btn-icon">↗</div></div>
+            </a>
+            <a href="https://linkedin.com/in/simrancs1998" class="btn-ghost" target="_blank" rel="noopener">LinkedIn ↗</a>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div><!-- /home panel -->
+
+  <!-- ═══════════════ CV / WORK ═══════════════ -->
+  <div class="spa-panel" data-page="cv.html">
+    <div class="content-wrap">
+
+      <div class="page-head">
+        <div class="page-head-flex">
+          <div>
+            <div class="page-eyebrow">Personnel file · SS·2026·001</div>
+            <h1 class="page-title">Simran <em>Shah.</em></h1>
+            <p class="page-meta">Strategic Marketing · 4 years B2B · Berlin</p>
+          </div>
+          <div class="page-head-right">
+            <div class="head-images">
+              <div class="head-photo"><img src="picture.jpeg" alt="Simran Shah"></div>
+              <div class="head-qr">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=https://www.linkedin.com/in/simrancs1998/" alt="LinkedIn QR">
+                <span class="head-qr-label">scan · linkedin</span>
+              </div>
+            </div>
+            <a class="download-btn" href="Simran Shah - Resume.pdf" download="Simran-Shah-Resume.pdf">
+              <div class="download-btn-inner">Download PDF<div class="download-icon">↓</div></div>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="cv-contact-strip">
+        <div class="cv-contact-grid">
+          <div class="cv-contact-item"><span class="cv-contact-label">Location</span><span class="cv-contact-val">Berlin, Germany</span></div>
+          <div class="cv-contact-item"><span class="cv-contact-label">Phone</span><span class="cv-contact-val">+49 1520 2163 924</span></div>
+          <div class="cv-contact-item"><span class="cv-contact-label">Email</span><span class="cv-contact-val"><a href="mailto:simranshah1998@gmail.com">simranshah1998@gmail.com</a></span></div>
+          <div class="cv-contact-item"><span class="cv-contact-label">LinkedIn</span><span class="cv-contact-val"><a href="https://linkedin.com/in/simrancs1998" target="_blank" rel="noopener">linkedin.com/in/simrancs1998</a></span></div>
+        </div>
+        <div class="lang-pills">
+          <span class="lang-pill">English · C2</span>
+          <span class="lang-pill">German · B2</span>
+          <span class="lang-pill">Hindi · C2</span>
+        </div>
+      </div>
+
+      <div class="cv-section">
+        <div class="sec-head"><span class="sec-label">Summary</span><span class="sec-line"></span></div>
+        <p class="cv-summary">Strategic marketing and product professional with 4+ years of B2B commercial experience across solution sales, go-to-market strategy, enterprise pipeline management, and cross-functional stakeholder work. Delivered 15% YoY revenue growth and a 25% uplift in qualified pipeline through paid media campaigns, structured A/B testing, and CXO-level client advisory. Based in Berlin. MA in Strategic Marketing Management, ISM Berlin (Grade: 1.91).</p>
+      </div>
+
+      <div class="cv-section">
+        <div class="sec-head"><span class="sec-label">Professional Experience</span><span class="sec-line"></span><span class="sec-count">4+ years</span></div>
+        <div class="entry">
+          <div class="entry-head"><span class="entry-role">Marketing &amp; Product Manager — <em>Cloud Sales</em></span><span class="entry-date">Apr 2026 – Present</span></div>
+          <div class="entry-company">Xpress Computers Ltd. · Microsoft Modern Workplace Certified Solutions Partner · Remote</div>
+          <p class="entry-desc">Remote marketing and commercial support for cloud solution campaigns, continuing product positioning and pipeline support work for enterprise Microsoft cloud clients.</p>
+        </div>
+        <div class="entry">
+          <div class="entry-head"><span class="entry-role">Marketing &amp; Product Manager — <em>Cloud Sales</em></span><span class="entry-date">Jan 2020 – Mar 2024</span></div>
+          <div class="entry-company">Xpress Computers Ltd. · Microsoft Modern Workplace Certified Solutions Partner · Mumbai</div>
+          <p class="entry-desc">Owned end-to-end B2B marketing and solution sales for a Microsoft-certified partner, running paid campaigns across Google Ads and LinkedIn Ads and managing the full commercial cycle from lead generation through to client onboarding and account growth.</p>
+          <ul class="entry-list">
+            <li>Planned, launched, and optimised Google Ads and LinkedIn Ads campaigns targeting enterprise decision-makers — delivering 15% YoY revenue growth and a 25% increase in qualified pipeline.</li>
+            <li>Ran structured A/B tests across creatives, messaging, and targeting parameters to reduce cost per acquisition and improve conversion rates.</li>
+            <li>Built trusted CXO-level relationships across key enterprise accounts, translating complex product capabilities into clear commercial value.</li>
+          </ul>
+        </div>
+        <div class="entry">
+          <div class="entry-head"><span class="entry-role">Public Relations &amp; Communications — <em>Intern</em></span><span class="entry-date">Aug 2019 – Oct 2019</span></div>
+          <div class="entry-company">StudioTalkPR · Mumbai · Client: Population Foundation of India</div>
+          <ul class="entry-list">
+            <li>Managed media relations and press outreach, writing releases and coordinating editorial coverage across print and digital channels.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="cv-section">
+        <div class="sec-head"><span class="sec-label">Education</span><span class="sec-line"></span></div>
+        <div class="entry">
+          <div class="entry-head"><span class="entry-role">M.A. Strategic Marketing <em>Management</em></span><span class="entry-date">Sep 2024 – Mar 2026</span></div>
+          <div class="entry-company">International School of Management (ISM), Berlin · Final Grade: 1.91</div>
+          <p class="entry-desc">Thesis: AI Marketing Personalisation in Privacy-Conscious B2B Markets: A German Perspective.</p>
+        </div>
+        <div class="entry">
+          <div class="entry-head"><span class="entry-role">Pre-Master Programme — <em>International Business</em></span><span class="entry-date">Mar 2024 – Aug 2024</span></div>
+          <div class="entry-company">International School of Management (ISM), Berlin</div>
+          <p class="entry-desc">Modules: Corporate Management, Intercultural Management, Financial Reporting, Investment Theory, Business Mathematics.</p>
+        </div>
+        <div class="entry">
+          <div class="entry-head"><span class="entry-role">B.A. <em>Sociology</em></span><span class="entry-date">Jun 2016 – Oct 2020</span></div>
+          <div class="entry-company">L.S. Raheja College of Commerce and Arts · Mumbai</div>
+          <p class="entry-desc">Focus on social dynamics, behavioural research, and quantitative and qualitative data analysis methodologies.</p>
+        </div>
+      </div>
+
+      <div class="cv-section">
+        <div class="sec-head"><span class="sec-label">Projects &amp; Courses</span><span class="sec-line"></span></div>
+        <div class="entry">
+          <div class="entry-head"><span class="entry-role">McKinsey Forward Program</span><span class="entry-date">April 2026</span></div>
+          <div class="entry-company">McKinsey &amp; Company</div>
+          <p class="entry-desc">Selective professional development program covering structured problem-solving, leadership, and business strategy.</p>
+        </div>
+        <div class="entry">
+          <div class="entry-head"><span class="entry-role">B2B Market Analyst &amp; <em>Strategy Consultant</em></span><span class="entry-date">Mar 2025 – Jun 2025</span></div>
+          <div class="entry-company">Consulting Project · PIK AG via ISM Berlin</div>
+          <ul class="entry-list">
+            <li>Analysed the German B2B market across 1,000+ employee accounts, building a structured lead generation strategy with business cases presented to senior management.</li>
+            <li>Identified gaps in cross-departmental communication and recommended practical fixes to improve execution.</li>
+          </ul>
+        </div>
+        <div class="entry">
+          <div class="entry-head"><span class="entry-role">International Buddy &amp; <em>Event Coordinator</em></span><span class="entry-date">Sep 2024 – Feb 2025</span></div>
+          <div class="entry-company">ISM Berlin · International Student Services</div>
+          <ul class="entry-list">
+            <li>Planned and delivered 6 large-scale networking events end-to-end across logistics, communications, and stakeholder management.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="cv-section">
+        <div class="sec-head"><span class="sec-label">Competencies &amp; Tools</span><span class="sec-line"></span></div>
+        <div class="skills-grid">
+          <span class="skill-cat">Research &amp; Analytics</span>
+          <span class="skill-val">SPSS (Advanced), Google Sheets &amp; Excel, KPI reporting, market &amp; competitor analysis.</span>
+          <span class="skill-cat">CRM &amp; Automation</span>
+          <span class="skill-val">Salesforce, HubSpot, lead flow tracking, campaign reporting.</span>
+          <span class="skill-cat">Platforms &amp; Tools</span>
+          <span class="skill-val">Google Ads, LinkedIn Ads, Microsoft Suite (Certified), Google Suite (Certified), Microsoft Azure, Microsoft Copilot, Canva, Figma, Adobe Photoshop (Certified), After Effects, CapCut.</span>
+          <span class="skill-cat">Languages</span>
+          <span class="skill-val">English (Native / C2), German (B2), Hindi (Native / C2).</span>
+        </div>
+      </div>
+
+      <div class="cv-footer">
+        <span class="cv-footer-left">File last updated · Apr 2026</span>
+        <div class="cv-footer-links">
+          <a href="mailto:simranshah1998@gmail.com">Email</a>
+          <a href="https://linkedin.com/in/simrancs1998" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+          <a href="Simran Shah - Resume.pdf" download="Simran-Shah-Resume.pdf">Download PDF</a>
+        </div>
+      </div>
+
+    </div>
+  </div><!-- /cv panel -->
+
+  <!-- ═══════════════ PORTFOLIO ═══════════════ -->
+  <div class="spa-panel" data-page="portfolio.html">
+    <div class="content-wrap">
+
+      <div class="page-head">
+        <div class="page-eyebrow">Archive · 05 entries logged</div>
+        <h1 class="page-title">My <em>Work.</em></h1>
+        <p class="page-intro">
+          Case studies first from live client engagements, academic projects after from my MA at ISM Berlin. The summaries are short on purpose — full decks and documents available on request. If something catches your attention just <a href="mailto:simranshah1998@gmail.com">email</a> or <a href="https://linkedin.com/in/simrancs1998" target="_blank" rel="noopener">message me on LinkedIn</a>.
+        </p>
+      </div>
+
+      <div class="jump-nav">
+        <a class="jump-link" href="#case-studies">Case Studies</a>
+        <a class="jump-link" href="#academic">Academic Projects</a>
+      </div>
+
+      <div class="pf-section" id="case-studies">
+        <div class="sec-head"><span class="sec-label">Case Studies</span><span class="sec-line"></span><span class="sec-count">01 / 01</span></div>
+        <p class="sec-note">Real client work. Anonymised where NDAs require it.</p>
+        <article class="project-card">
+          <div class="card-head"><span class="card-tag">CASE.01 · Client</span><span class="card-meta">2020 – 2024 · Mumbai</span></div>
+          <h3 class="card-title">Company A — <em>Case Study</em></h3>
+          <div class="card-subtitle">Marketing &amp; Business Development · B2B Technology Reseller · Microsoft Partner</div>
+          <div class="card-body">
+            <p>During the pandemic, a mid-sized customer came to us wanting to buy Zoom licences and Google Drive cloud storage. He was the CEO, managing IT himself. Our technical team could see he didn't need any of it, but the conversation kept stalling because the jargon wasn't landing — so they assigned him to me.</p>
+            <p>I sat with him and explained, in plain language, that his existing Microsoft Enterprise licence already included pretty much everything he was about to pay twice for. We ended up helping him set up Teams and OneDrive across his team, at no additional software cost.</p>
+            <p>The takeaway: technical jargon can be a wall. Meeting someone where they are isn't a soft skill sitting next to the real work — a lot of the time it is the real work. The deal we didn't close that day turned into a customer who trusted us on bigger things later.</p>
+          </div>
+        </article>
+      </div>
+
+      <div class="pf-section" id="academic">
+        <div class="sec-head"><span class="sec-label">Academic Projects</span><span class="sec-line"></span><span class="sec-count">04 / 04</span></div>
+        <p class="sec-note">MA Strategic Marketing Management · ISM Berlin · 2024 – 2026</p>
+
+        <article class="project-card">
+          <div class="card-head"><span class="card-tag">ACAD.01 · Thesis</span><span class="card-meta">2026 · Solo</span></div>
+          <h3 class="card-title">Thesis — AI marketing in<br><em>privacy-conscious B2B</em></h3>
+          <div class="card-subtitle">MA Strategic Marketing Management · ISM Berlin · 2026</div>
+          <div class="card-body">
+            <p>A qualitative study of how German B2B firms actually evaluate AI-powered marketing tools in a market where data privacy and institutional trust change every adoption decision. Twelve expert interviews across marketing, sales, IT, and procurement.</p>
+            <p>The core finding: adoption isn't a yes/no decision, it's a five-layer filter — infrastructure fit, relational appropriateness, governance alignment, regulatory conformity, and reputational credibility. I built this into a framework called the Negotiated Institutional Adoption Framework (NIAF).</p>
+            <p>Vendors selling into Germany should lead with compliance, prioritise integration, and partner with incumbents rather than trying to disrupt them.</p>
+          </div>
+        </article>
+
+        <article class="project-card">
+          <div class="card-head"><span class="card-tag">ACAD.02 · Competition</span><span class="card-meta">2026 · Group of 3</span></div>
+          <h3 class="card-title">L'Oréal Brandstorm —<br><em>[ intentionally blank ]</em></h3>
+          <div class="card-subtitle">Case Competition Entry · Maison Margiela · L'Oréal Luxe · 2026</div>
+          <div class="card-body">
+            <p>A modular fragrance composition system for Maison Margiela Fragrances. A permanent matte-black aluminium tower — each half-block holds one curated accord, you stack them on a Bluetooth rod to build your collection. Twenty blocks yield around 1,140 three-accord compositions. An archive app reads each block passively through NFC.</p>
+            <p>Where Margiela's existing REPLICA refill cuts packaging by 32%, ours gets closer to 80–90% because the casing never leaves circulation. We built out full pricing architecture, unit economics, three-stream revenue model, and a DTC refill logistics model.</p>
+          </div>
+        </article>
+
+        <article class="project-card">
+          <div class="card-head"><span class="card-tag">ACAD.03 · Consulting</span><span class="card-meta">2025 · Group of 5</span></div>
+          <h3 class="card-title">Consulting Project —<br><em>B2B Enterprise Technology Client</em></h3>
+          <div class="card-subtitle">Group Project · MA Strategic Marketing Management · ISM Berlin</div>
+          <div class="card-body">
+            <p>A consulting engagement for a German B2B enterprise technology firm targeting DACH-region clients with 1,000+ employees. Full marketing and communications strategy plus an employer branding strategy for satellite employees.</p>
+            <p>Go-to-market plan covering ATL channels (DOOH, business press) and BTL tactics (whitepapers, LinkedIn ABM, enterprise dinners, sponsored podcasts) with a €52K budget and a full KPI framework.</p>
+          </div>
+        </article>
+
+        <article class="project-card">
+          <div class="card-head"><span class="card-tag">ACAD.04 · Teardown</span><span class="card-meta">2025 · Group Project</span></div>
+          <h3 class="card-title">Spotify <em>CRM Teardown</em></h3>
+          <div class="card-subtitle">Group Project · MA Strategic Marketing Management · ISM Berlin</div>
+          <div class="card-body">
+            <p>A deep-dive into how Spotify uses CRM as a strategic engine. Mapped Spotify's full customer lifecycle across acquisition, data-driven relationship building, CLV modelling across premium vs. ad-supported tiers, and generative AI extensions.</p>
+            <p>My section: hyper-personalisation via collaborative and content-based filtering, and their Graph Neural Network work on audiobook recommendations. Core takeaway: Spotify Wrapped is user-facing CRM — turning invisible data collection into an emotional reason to stay subscribed.</p>
+          </div>
+        </article>
+      </div>
+
+      <div class="pf-footer">
+        <span class="pf-footer-left">Archive · 5 entries logged · open to discuss</span>
+        <div class="pf-footer-links">
+          <a href="mailto:simranshah1998@gmail.com">Email</a>
+          <a href="https://linkedin.com/in/simrancs1998" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+        </div>
+      </div>
+
+    </div>
+  </div><!-- /portfolio panel -->
+
+  <!-- ═══════════════ CONTACT ═══════════════ -->
+  <div class="spa-panel" data-page="contact.html">
+    <div class="page-wrap-contact">
+      <div class="contact-block">
+        <div class="contact-badge"><span class="badge-dot"></span>Transmission channel open</div>
+        <div class="contact-eyebrow">Initiate contact</div>
+        <h1 class="contact-headline">Ready to<br><em>transmit.</em></h1>
+        <p class="contact-sub">If that sounds like the kind of person you're hiring, let's talk.</p>
+        <div class="contact-rows">
+          <div class="contact-row">
+            <span class="contact-row-label">Email</span>
+            <span class="contact-row-val"><a href="mailto:simranshah1998@gmail.com">simranshah1998@gmail.com</a></span>
+          </div>
+          <div class="contact-row">
+            <span class="contact-row-label">LinkedIn</span>
+            <span class="contact-row-val"><a href="https://linkedin.com/in/simrancs1998" target="_blank" rel="noopener noreferrer">linkedin.com/in/simrancs1998</a></span>
+          </div>
+          <div class="contact-row">
+            <span class="contact-row-label">Location</span>
+            <span class="contact-row-val">Berlin, Germany · open to remote</span>
+          </div>
+        </div>
+        <div class="contact-actions">
+          <a href="mailto:simranshah1998@gmail.com" class="btn-primary">
+            <div class="btn-primary-inner">simranshah1998@gmail.com<div class="btn-icon">↗</div></div>
+          </a>
+          <a href="Simran Shah - Resume.pdf" class="btn-ghost" target="_blank" rel="noopener">Download CV</a>
+        </div>
+      </div>
+    </div>
+  </div><!-- /contact panel -->
+
+</div><!-- /spa-root -->
+
+<script>
+/* ── Portfolio spotlight rotator ── */
+(function(){
+  var projects = [
+    { ref:'LOG·001 / MA·THESIS',     title:'AI marketing in<br><em>privacy-conscious B2B</em>', type:'Qualitative Research · B2B · Germany · MA Thesis 2026',      desc:'Twelve expert interviews. Five-layer adoption filter. One new framework: the Negotiated Institutional Adoption Framework (NIAF).',                  tags:['Research','B2B','AI','Strategy'] },
+    { ref:'LOG·002 / XPRESS',        title:'B2B Software Marketing<br><em>— 4 Years</em>',       type:'Marketing Strategy · CRM · Microsoft Partner',                  desc:'Campaign ownership, demand gen, and channel strategy inside a Microsoft Partner ecosystem. Full accountability for pipeline and go-to-market motions.', tags:['B2B','CRM','Demand Gen','Microsoft'] },
+    { ref:'LOG·003 / L\'ORÉAL',      title:'[ intentionally blank ]<br><em>— Maison Margiela</em>', type:'Product Design · Sustainability · L\'Oréal Luxe',            desc:'Modular fragrance system. Permanent matte-black aluminium tower, Bluetooth rod, NFC half-blocks. 80–90% packaging reduction over conventional fragrance.', tags:['Product Design','Sustainability','Luxury'] },
+    { ref:'LOG·004 / CONSULTING',    title:'B2B Enterprise Technology<br><em>— DACH</em>',        type:'Consulting · DACH Market · B2B Strategy',                       desc:'Full go-to-market and employer branding strategy for a German B2B enterprise tech firm. €52K budget, ATL/BTL channel mix.',                            tags:['GTM','Consulting','DACH','Branding'] },
+    { ref:'LOG·005 / CRM·TEARDOWN', title:'Spotify CRM<br><em>Teardown</em>',                   type:'CRM Strategy · Personalisation · Academic',                      desc:'Hyper-personalisation via collaborative and content-based filtering. Why Spotify Wrapped is user-facing CRM.',                                          tags:['CRM','Personalisation','Strategy','Research'] },
+  ];
+  var current=0;
+  var card=document.getElementById('spotlight');
+  var elRef=document.getElementById('spotRef');
+  var elTitle=document.getElementById('spotTitle');
+  var elType=document.getElementById('spotType');
+  var elDesc=document.getElementById('spotDesc');
+  var elTags=document.getElementById('spotTags');
+  var elCount=document.getElementById('spotCounter');
+  var elCountInner=document.getElementById('spotCounterInner');
+  var btnPrev=document.getElementById('spotPrev');
+  var btnNext=document.getElementById('spotNext');
+  function pad(n){ return n<10?'0'+n:''+n; }
+  function render(idx){
+    var p=projects[idx];
+    elRef.textContent=p.ref; elTitle.innerHTML=p.title;
+    elType.textContent=p.type; elDesc.textContent=p.desc;
+    var c=pad(idx+1)+' / '+pad(projects.length);
+    elCount.textContent=c; elCountInner.textContent=c;
+    elTags.innerHTML=p.tags.map(function(t){ return '<span class="spot-pill">'+t+'</span>'; }).join('');
+  }
+  function goTo(idx){
+    card.classList.add('fading');
+    setTimeout(function(){ current=(idx+projects.length)%projects.length; render(current); card.classList.remove('fading'); },190);
+  }
+  btnPrev.addEventListener('click',function(){ goTo(current-1); });
+  btnNext.addEventListener('click',function(){ goTo(current+1); });
+  document.addEventListener('keydown',function(e){ if(e.key==='ArrowLeft') goTo(current-1); if(e.key==='ArrowRight') goTo(current+1); });
+  render(0);
+})();
+</script>
+
+<script>
+/* ── SPA router ── */
+(function(){
+  var POSITIONS = {
+    'index.html':     { x: 0,    z: 0   },
+    'cv.html':        { x: 70,   z: -20 },
+    'portfolio.html': { x: -120, z: 35  },
+    'contact.html':   { x: -80,  z: -25 },
+  };
+
+  var currentPage = 'index.html';
+
+  function getPanel(page){ return document.querySelector('.spa-panel[data-page="'+page+'"]'); }
+
+  function showPanel(page){
+    var panel = getPanel(page);
+    if(!panel) return;
+    panel.classList.add('active');
+    requestAnimationFrame(function(){
+      requestAnimationFrame(function(){ panel.classList.add('visible'); });
+    });
+  }
+
+  function hidePanel(page){
+    var panel = getPanel(page);
+    if(!panel) return;
+    panel.classList.remove('visible');
+    panel.addEventListener('transitionend', function handler(){
+      panel.removeEventListener('transitionend', handler);
+      panel.classList.remove('active');
+    }, { once: true });
+  }
+
+  /* show home on load */
+  showPanel('index.html');
+
+  document.querySelectorAll('.nav-links a').forEach(function(a){
+    a.addEventListener('click', function(e){
+      e.preventDefault();
+      var page = a.dataset.page;
+      var pos  = POSITIONS[page];
+      if(!pos || page === currentPage) return;
+
+      document.querySelectorAll('.nav-links a').forEach(function(l){ l.classList.remove('active'); });
+      a.classList.add('active');
+
+      hidePanel(currentPage);
+      window.scrollTo(0, 0);
+      window.dispatchEvent(new CustomEvent('terrainnav', { detail: pos }));
+      currentPage = page;
+    });
+  });
+
+  /* fade in new panel once terrain lands */
+  window.addEventListener('terrainlanded', function(){
+    showPanel(currentPage);
+  });
+})();
+</script>
+
+</body>
+</html>
